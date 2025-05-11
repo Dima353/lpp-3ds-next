@@ -1,54 +1,62 @@
-name: Citra
+name: Citra Build
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ARTIFACTS_DIR: ~/artifacts
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set Up devkitARM-r45
         run: |
-          
+          # Make setup script executable and run it
           sudo chmod +x setup.sh
           ./setup.sh
+          
+          # Clone repository and set up environment
           cd /home/runner/
-         
           git clone https://github.com/Tobi-D7/lpp-3ds-updated.git
           export D7=/home/runner/lpp-3ds-updated
           cd $D7/
           
-          sudo mkdir /opt/devkitpro
-          
+          # Set up devkitpro
+          sudo mkdir -p /opt/devkitpro
           cp -r 'dka/devkitARM-r45/' '/opt/devkitpro/dka-r45'
           export DEVKITPRO=/opt/devkitpro
           export DEVKITARM=/opt/devkitpro/dka-r45
+          
+          # Set up aemstro
           git clone https://github.com/smealum/aemstro.git aemstro
           sudo cp -r 'aemstro/' '/opt/devkitpro/aemstro'
           export AEMSTRO=/opt/devkitpro/aemstro
 
+          # Build 3dsx support
           cd $DEVKITARM/arm-none-eabi/lib && make CRT=3dsx
           
+          # Build main project
           cd $D7/
-          make -j $DCITRA3DSCOMPATIBLE
-          mkdir -p ~/artifacts
-        
-          cp lpp-3ds-updated.3dsx ~/artifacts
-          cp lpp-3ds-updated.elf ~/artifacts
-          cp lpp-3ds-updated.smdh ~/artifacts
-         
-
-      - name: pbcitra
-        uses: actions/upload-artifact@v2
-        with:
-          path: ~/artifacts/*
-          name: build
+          make -j ${DCITRA3DSCOMPATIBLE:-$(nproc)}
           
+          # Prepare artifacts
+          mkdir -p "$ARTIFACTS_DIR"
+          cp lpp-3ds-updated.3dsx "$ARTIFACTS_DIR/"
+          cp lpp-3ds-updated.elf "$ARTIFACTS_DIR/"
+          cp lpp-3ds-updated.smdh "$ARTIFACTS_DIR/"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{ env.ARTIFACTS_DIR }}/*
+          name: citra-build
+          retention-days: 7
+          if-no-files-found: error
