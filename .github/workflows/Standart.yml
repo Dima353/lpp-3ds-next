@@ -93,7 +93,7 @@ jobs:
           echo ::set-output name=current_date::$CURRENT_DATE
           echo ${{ steps.pre-release.outputs.current_date }}
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: build
           path: build
