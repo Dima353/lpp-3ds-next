@@ -1,30 +1,28 @@
-name: Standart
+name: Standard
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      commit_tag: ${{ steps.build.outputs.commit_tag }}
-      commit_hash: ${{ steps.build.outputs.commit_hash }}
-      author_name: ${{ steps.build.outputs.author_name }}
-      committer_name: ${{ steps.build.outputs.committer_name }}
-      commit_subject: ${{ steps.build.outputs.commit_subject }}
-      commit_message: ${{ steps.build.outputs.commit_message }}
+      commit_tag: ${{ steps.git_info.outputs.commit_tag }}
+      commit_hash: ${{ steps.git_info.outputs.commit_hash }}
+      author_name: ${{ steps.git_info.outputs.author_name }}
+      committer_name: ${{ steps.git_info.outputs.committer_name }}
+      commit_subject: ${{ steps.git_info.outputs.commit_subject }}
+      commit_message: ${{ steps.git_info.outputs.commit_message }}
     
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set Up devkitARM-r45
         run: |
-          
           sudo chmod +x setup.sh
           ./setup.sh
           cd /home/runner/
@@ -33,7 +31,7 @@ jobs:
           export D7=/home/runner/lpp-3ds-next
           cd $D7/
           
-          sudo mkdir /opt/devkitpro
+          sudo mkdir -p /opt/devkitpro
           
           cp -r 'dka/devkitARM-r45/' '/opt/devkitpro/dka-r45'
           export DEVKITPRO=/opt/devkitpro
@@ -41,7 +39,6 @@ jobs:
           git clone https://github.com/smealum/aemstro.git aemstro
           sudo cp -r 'aemstro/' '/opt/devkitpro/aemstro'
           export AEMSTRO=/opt/devkitpro/aemstro
-
           cd $DEVKITARM/arm-none-eabi/lib && make CRT=3dsx
           
           cd $D7/
@@ -55,27 +52,28 @@ jobs:
           cp lpp-3ds-next.3dsx ~/artifacts/lpp-3ds-next-citra.3dsx
           cp lpp-3ds-next.elf ~/artifacts/lpp-3ds-next-citra.elf
           cp lpp-3ds-next.smdh ~/artifacts/lpp-3ds-next-citra.smdh
-          echo ::set-output name=commit_tag::$(git describe --abbrev=0 --tags)
-          echo ::set-output name=commit_hash::$(git log --format=%h -1)
 
-          # Webhook info
-          echo "::set-output name=author_name::$(git log -1 $GITHUB_SHA --pretty=%aN)"
-          echo "::set-output name=committer_name::$(git log -1 $GITHUB_SHA --pretty=%cN)"
-          echo "::set-output name=commit_subject::$(git log -1 $GITHUB_SHA --pretty=%s)"
-          echo "::set-output name=commit_message::$(git log -1 $GITHUB_SHA --pretty=%b)"
+      - name: Extract Git Info
+        id: git_info
+        run: |
+          echo "commit_tag=$(git describe --abbrev=0 --tags)" >> $GITHUB_OUTPUT
+          echo "commit_hash=$(git log --format=%h -1)" >> $GITHUB_OUTPUT
+          echo "author_name=$(git log -1 $GITHUB_SHA --pretty=%aN)" >> $GITHUB_OUTPUT
+          echo "committer_name=$(git log -1 $GITHUB_SHA --pretty=%cN)" >> $GITHUB_OUTPUT
+          echo "commit_subject=$(git log -1 $GITHUB_SHA --pretty=%s)" >> $GITHUB_OUTPUT
+          echo "commit_message=$(git log -1 $GITHUB_SHA --pretty=%b)" >> $GITHUB_OUTPUT
 
-
-      - name: pb
-        uses: actions/upload-artifact@v2
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
         with:
           path: ~/artifacts/*
           name: build
-
+          retention-days: 5
 
   pre-release:
     name: "Pre Release"
-    runs-on: "ubuntu-latest"
-    needs: "build"
+    runs-on: ubuntu-latest
+    needs: build
     env:
       COMMIT_TAG: ${{ needs.build.outputs.commit_tag }}
       COMMIT_HASH: ${{ needs.build.outputs.commit_hash }}
@@ -83,17 +81,25 @@ jobs:
       COMMIT_SUBJECT: ${{ needs.build.outputs.commit_subject }}
       COMMIT_MESSAGE: ${{ needs.build.outputs.commit_message }}
     outputs:
-      current_date: ${{ steps.commit.outputs.current_date }}
+      current_date: ${{ steps.date_info.outputs.current_date }}
     steps:
-      - uses: actions/checkout@v2
-      - name: Gen Date
-        id: commit 
+      - uses: actions/checkout@v4
+      
+      - name: Generate Date
+        id: date_info
         run: |
           CURRENT_DATE=$(date +"%Y%m%d-%H%M%S")
-          echo ::set-output name=current_date::$CURRENT_DATE
-          echo ${{ steps.pre-release.outputs.current_date }}
+          echo "current_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+          echo "Generated date: $CURRENT_DATE"
+      
       - name: Download artifacts
-      - uses: actions/upload-artifact@v4
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: build
           path: build
