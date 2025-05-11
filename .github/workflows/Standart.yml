@@ -52,7 +52,6 @@ jobs:
           cp lpp-3ds-next.3dsx ~/artifacts/lpp-3ds-next-citra.3dsx
           cp lpp-3ds-next.elf ~/artifacts/lpp-3ds-next-citra.elf
           cp lpp-3ds-next.smdh ~/artifacts/lpp-3ds-next-citra.smdh
-
       - name: Extract Git Info
         id: git_info
         run: |
@@ -62,12 +61,11 @@ jobs:
           echo "committer_name=$(git log -1 $GITHUB_SHA --pretty=%cN)" >> $GITHUB_OUTPUT
           echo "commit_subject=$(git log -1 $GITHUB_SHA --pretty=%s)" >> $GITHUB_OUTPUT
           echo "commit_message=$(git log -1 $GITHUB_SHA --pretty=%b)" >> $GITHUB_OUTPUT
-
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           path: ~/artifacts/*
-          name: build
+          name: build-artifacts
           retention-days: 5
 
   pre-release:
@@ -95,11 +93,11 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build
+          name: build-artifacts
           path: build
 
-      - name: Upload artifacts
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build
+          name: release-${{ steps.date_info.outputs.current_date }}
           path: build
