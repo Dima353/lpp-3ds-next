@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ARTIFACTS_DIR: ~/artifacts
+      ARTIFACTS_DIR: /home/runner/artifacts  # Using full absolute path
 
     steps:
       - name: Checkout repository
@@ -24,9 +24,8 @@ jobs:
           ./setup.sh
           
           # Clone repository and set up environment
-          cd /home/runner/
           git clone https://github.com/Tobi-D7/lpp-3ds-updated.git
-          export D7=/home/runner/lpp-3ds-updated
+          export D7=$PWD/lpp-3ds-updated
           cd $D7/
           
           # Set up devkitpro
@@ -52,11 +51,13 @@ jobs:
           cp lpp-3ds-updated.3dsx "$ARTIFACTS_DIR/"
           cp lpp-3ds-updated.elf "$ARTIFACTS_DIR/"
           cp lpp-3ds-updated.smdh "$ARTIFACTS_DIR/"
+          
+          # Verify files were copied
+          ls -la "$ARTIFACTS_DIR"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          path: ${{ env.ARTIFACTS_DIR }}/*
+          path: ${{ env.ARTIFACTS_DIR }}/
           name: citra-build
           retention-days: 7
-          if-no-files-found: error
